@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { CategoryBudget, Transaction, ExpenseCategory } from '../types/budget';
-import { INITIAL_BUDGETS, INITIAL_TRANSACTIONS, EXPENSE_CATEGORY_MAP } from '../utils/mockBudgetData';
+import { EXPENSE_CATEGORY_MAP } from '../utils/mockBudgetData';
 
 // Inline SVG Icons
 const PlusIcon = () => (
@@ -21,9 +21,19 @@ const EditIcon = () => (
   </svg>
 );
 
-export function BudgetOverview() {
-  const [budgets, setBudgets] = useState<CategoryBudget[]>(INITIAL_BUDGETS);
-  const [transactions, setTransactions] = useState<Transaction[]>(INITIAL_TRANSACTIONS);
+interface BudgetOverviewProps {
+  budgets: CategoryBudget[];
+  setBudgets: (budgets: CategoryBudget[]) => void;
+  transactions: Transaction[];
+  setTransactions: (transactions: Transaction[]) => void;
+}
+
+export function BudgetOverview({
+  budgets,
+  setBudgets,
+  transactions,
+  setTransactions,
+}: BudgetOverviewProps) {
 
   // Modals / Forms State
   const [isTxFormOpen, setIsTxFormOpen] = useState(false);

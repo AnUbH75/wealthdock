@@ -1,6 +1,5 @@
 import React, { useState, useMemo } from 'react';
 import { Asset, AssetType } from '../types/asset';
-import { INITIAL_MOCK_ASSETS } from '../utils/mockData';
 import { HistoryChart } from './HistoryChart';
 
 // Custom inline SVG icons
@@ -61,8 +60,12 @@ const CATEGORY_MAP: Record<AssetType, { label: string; colorClass: string; bgCla
   investment: { label: 'Investments', colorClass: 'text-violet-400', bgClass: 'bg-violet-500', icon: ChartIcon },
 };
 
-export function Dashboard() {
-  const [assets, setAssets] = useState<Asset[]>(INITIAL_MOCK_ASSETS);
+interface DashboardProps {
+  assets: Asset[];
+  setAssets: (assets: Asset[]) => void;
+}
+
+export function Dashboard({ assets, setAssets }: DashboardProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
 
