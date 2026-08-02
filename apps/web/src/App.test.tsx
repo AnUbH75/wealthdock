@@ -6,8 +6,12 @@ describe('App', () => {
   it('renders the wealthdock dashboard with totals and breakdown', () => {
     render(<App />);
 
-    // Renders title
-    expect(screen.getByRole('heading', { name: 'wealthdock' })).toBeInTheDocument();
+    // Renders header title globally
+    expect(screen.getAllByRole('heading', { name: 'wealthdock' })[0]).toBeInTheDocument();
+
+    // Navigation tabs are visible
+    expect(screen.getByRole('button', { name: 'Net Worth' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Budget Planner' })).toBeInTheDocument();
 
     // Renders total net worth title
     expect(screen.getAllByText('Total Net Worth')[0]).toBeInTheDocument();
@@ -122,5 +126,67 @@ describe('App', () => {
 
     // Click Real Estate metric
     fireEvent.click(screen.getByRole('button', { name: 'Real Estate' }));
+  });
+
+  it('renders the budget overview, displays comparison delta, and enables editing budgets', () => {
+    render(<App />);
+
+    // Switch to Budget Planner tab
+    const budgetTabButton = screen.getByRole('button', { name: 'Budget Planner' });
+    fireEvent.click(budgetTabButton);
+
+    // Verify budget overview header and categories render
+    expect(screen.getByText('Monthly Budgets')).toBeInTheDocument();
+    expect(screen.getByText('Budgets by Category')).toBeInTheDocument();
+    expect(screen.getByText('Total Monthly Spend')).toBeInTheDocument();
+
+    // Verify over-budget indicator works (Entertainment has limit 500 but spends 535)
+    expect(screen.getByText('Over by $35')).toBeInTheDocument();
+
+    // Edit Groceries budget limit
+    const groceriesEditBtn = screen.getByTitle('Edit Groceries budget');
+    fireEvent.click(groceriesEditBtn);
+
+    // Verify limit edit modal opens
+    expect(screen.getByRole('heading', { name: 'Edit Groceries Budget' })).toBeInTheDocument();
+    const limitInput = screen.getByPlaceholderText('e.g. 500');
+    fireEvent.change(limitInput, { target: { value: '800' } });
+
+    const saveLimitBtn = screen.getByRole('button', { name: /Save Limit/i });
+    fireEvent.click(saveLimitBtn);
+
+    // Verify Groceries remaining text updates
+    expect(screen.getByText('$230 of $800')).toBeInTheDocument();
+  });
+
+  it('allows full transaction CRUD inside budget planner', () => {
+    render(<App />);
+
+    // Switch to Budget Planner
+    fireEvent.click(screen.getByRole('button', { name: 'Budget Planner' }));
+
+    // 1. Add Transaction
+    const addTxBtn = screen.getByRole('button', { name: /Add Transaction/i });
+    fireEvent.click(addTxBtn);
+
+    expect(screen.getByRole('heading', { name: 'Add Transaction' })).toBeInTheDocument();
+
+    const descInput = screen.getByPlaceholderText('e.g. Weekly Groceries');
+    const amountInput = screen.getByPlaceholderText('e.g. 45.50');
+    const categorySelect = screen.getByRole('combobox');
+
+    fireEvent.change(descInput, { target: { value: 'Test Gas Purchase' } });
+    fireEvent.change(categorySelect, { target: { value: 'transportation' } });
+    fireEvent.change(amountInput, { target: { value: '55.50' } });
+
+    const saveTxBtn = screen.getByRole('button', { name: /Save Transaction/i });
+    fireEvent.click(saveTxBtn);
+
+    // Verify new transaction details exist in list
+    expect(screen.getByText('Test Gas Purchase')).toBeInTheDocument();
+    expect(screen.getByText('-$56')).toBeInTheDocument(); // Formatted as max 0 decimal digits: -$56
+
+    // Verify Transportation spending changes from remaining $355 ($45 spent of $400) to remaining $300 ($100.5 spent of $400)
+    expect(screen.getByText('Remaining $300')).toBeInTheDocument();
   });
 });

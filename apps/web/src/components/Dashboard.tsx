@@ -224,13 +224,10 @@ export function Dashboard() {
   };
 
   return (
-    <div className="w-full max-w-5xl px-4 py-8 mx-auto text-zinc-100 min-h-screen">
+    <div className="w-full max-w-5xl px-4 py-2 mx-auto text-zinc-100 min-h-screen">
       {/* Top Header */}
-      <header className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-8">
-        <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white">wealthdock</h1>
-          <p className="text-sm text-zinc-400">Unified wealth and asset tracking platform</p>
-        </div>
+      <header className="flex justify-between items-center mb-6">
+        <h2 className="text-lg font-bold text-white">Asset Portfolio</h2>
         <button
           onClick={handleOpenAdd}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 active:scale-95 text-white rounded-lg transition"
