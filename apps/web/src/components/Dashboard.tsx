@@ -34,8 +34,14 @@ const ChartIcon = () => (
 );
 
 const TrashIcon = () => (
-  <svg className="w-4 h-4 text-zinc-500 hover:text-red-400 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+  <svg className="w-4 h-4 text-zinc-500 hover:text-red-455 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+  </svg>
+);
+
+const EditIcon = () => (
+  <svg className="w-4 h-4 text-zinc-500 hover:text-zinc-200 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
   </svg>
 );
 
@@ -57,6 +63,7 @@ const CATEGORY_MAP: Record<AssetType, { label: string; colorClass: string; bgCla
 export function Dashboard() {
   const [assets, setAssets] = useState<Asset[]>(INITIAL_MOCK_ASSETS);
   const [isFormOpen, setIsFormOpen] = useState(false);
+  const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
 
   // Form State
   const [name, setName] = useState('');
@@ -69,6 +76,8 @@ export function Dashboard() {
   const [modelYear, setModelYear] = useState('');
   const [symbol, setSymbol] = useState('');
   const [shares, setShares] = useState('');
+  const [purchasePrice, setPurchasePrice] = useState('');
+  const [notes, setNotes] = useState('');
 
   // Calculations
   const totalNetWorth = useMemo(() => {
@@ -100,7 +109,33 @@ export function Dashboard() {
   }, [assets, totalNetWorth]);
 
   // Actions
-  const handleAddAsset = (e: React.FormEvent) => {
+  const handleOpenEdit = (asset: Asset) => {
+    setEditingAsset(asset);
+    setName(asset.name);
+    setType(asset.type);
+    setValue(asset.value.toString());
+    setCurrency(asset.currency);
+
+    // Prefill details
+    setInstitution(asset.details?.institution || '');
+    setAccountNumber(asset.details?.accountNumber || '');
+    setLocation(asset.details?.location || '');
+    setModelYear(asset.details?.modelYear?.toString() || '');
+    setSymbol(asset.details?.symbol || '');
+    setShares(asset.details?.shares?.toString() || '');
+    setPurchasePrice(asset.details?.purchasePrice?.toString() || '');
+    setNotes(asset.details?.notes || '');
+
+    setIsFormOpen(true);
+  };
+
+  const handleOpenAdd = () => {
+    setEditingAsset(null);
+    resetFormState();
+    setIsFormOpen(true);
+  };
+
+  const handleAddOrEditAsset = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name || !value || isNaN(parseFloat(value))) return;
 
@@ -108,26 +143,49 @@ export function Dashboard() {
     if (type === 'bank') {
       if (institution) details.institution = institution;
       if (accountNumber) details.accountNumber = accountNumber;
-    } else if (type === 'real_estate' && location) {
-      details.location = location;
-    } else if (type === 'vehicle' && modelYear) {
-      details.modelYear = parseInt(modelYear);
+    } else if (type === 'real_estate') {
+      if (location) details.location = location;
+      if (purchasePrice) details.purchasePrice = parseFloat(purchasePrice);
+      if (notes) details.notes = notes;
+    } else if (type === 'vehicle') {
+      if (modelYear) details.modelYear = parseInt(modelYear);
+      if (purchasePrice) details.purchasePrice = parseFloat(purchasePrice);
+      if (notes) details.notes = notes;
     } else if (type === 'investment') {
       if (symbol) details.symbol = symbol;
       if (shares) details.shares = parseFloat(shares);
     }
 
-    const newAsset: Asset = {
-      id: Math.random().toString(36).substr(2, 9),
-      name,
-      type,
-      value: parseFloat(value),
-      currency,
-      lastUpdated: new Date().toISOString(),
-      details: Object.keys(details).length ? details : undefined,
-    };
-
-    setAssets([...assets, newAsset]);
+    if (editingAsset) {
+      // Edit operation
+      setAssets(
+        assets.map((a) =>
+          a.id === editingAsset.id
+            ? {
+                ...a,
+                name,
+                type,
+                value: parseFloat(value),
+                currency,
+                lastUpdated: new Date().toISOString(),
+                details: Object.keys(details).length ? details : undefined,
+              }
+            : a
+        )
+      );
+    } else {
+      // Add operation
+      const newAsset: Asset = {
+        id: Math.random().toString(36).substr(2, 9),
+        name,
+        type,
+        value: parseFloat(value),
+        currency,
+        lastUpdated: new Date().toISOString(),
+        details: Object.keys(details).length ? details : undefined,
+      };
+      setAssets([...assets, newAsset]);
+    }
     resetForm();
   };
 
@@ -135,7 +193,7 @@ export function Dashboard() {
     setAssets(assets.filter((a) => a.id !== id));
   };
 
-  const resetForm = () => {
+  const resetFormState = () => {
     setName('');
     setType('bank');
     setValue('');
@@ -146,6 +204,13 @@ export function Dashboard() {
     setModelYear('');
     setSymbol('');
     setShares('');
+    setPurchasePrice('');
+    setNotes('');
+  };
+
+  const resetForm = () => {
+    resetFormState();
+    setEditingAsset(null);
     setIsFormOpen(false);
   };
 
@@ -166,7 +231,7 @@ export function Dashboard() {
           <p className="text-sm text-zinc-400">Unified wealth and asset tracking platform</p>
         </div>
         <button
-          onClick={() => setIsFormOpen(true)}
+          onClick={handleOpenAdd}
           className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 active:scale-95 text-white rounded-lg transition"
         >
           <PlusIcon />
@@ -238,48 +303,73 @@ export function Dashboard() {
                   return (
                     <div
                       key={asset.id}
-                      className="group flex justify-between items-center p-4 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-zinc-700 transition"
+                      className="group flex flex-col p-4 rounded-xl bg-zinc-950 border border-zinc-800 hover:border-zinc-700 transition"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
-                          <Icon />
+                      <div className="flex justify-between items-center">
+                        <div className="flex items-center gap-3">
+                          <div className="p-2.5 rounded-lg bg-zinc-900 border border-zinc-800">
+                            <Icon />
+                          </div>
+                          <div>
+                            <h4 className="font-semibold text-sm text-zinc-200">{asset.name}</h4>
+                            <p className="text-xs text-zinc-400">
+                              {asset.type === 'bank' && asset.details?.institution && (
+                                <span>{asset.details.institution} {asset.details.accountNumber}</span>
+                              )}
+                              {asset.type === 'real_estate' && asset.details?.location && (
+                                <span>
+                                  {asset.details.location}
+                                  {asset.details.purchasePrice && ` • Purchased for ${formatCurrency(asset.details.purchasePrice)}`}
+                                </span>
+                              )}
+                              {asset.type === 'vehicle' && (asset.details?.modelYear || asset.details?.purchasePrice) && (
+                                <span>
+                                  {asset.details.modelYear && `${asset.details.modelYear}`}
+                                  {asset.details.modelYear && asset.details.purchasePrice && ' • '}
+                                  {asset.details.purchasePrice && `Purchased for ${formatCurrency(asset.details.purchasePrice)}`}
+                                </span>
+                              )}
+                              {asset.type === 'investment' && asset.details?.symbol && (
+                                <span>{asset.details.symbol} • {asset.details.shares} shares</span>
+                              )}
+                              {asset.type === 'cash' && <span className="capitalize">{asset.type}</span>}
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <h4 className="font-semibold text-sm text-zinc-200">{asset.name}</h4>
-                          <p className="text-xs text-zinc-400">
-                            {asset.type === 'bank' && asset.details?.institution && (
-                              <span>{asset.details.institution} {asset.details.accountNumber}</span>
-                            )}
-                            {asset.type === 'real_estate' && asset.details?.location && (
-                              <span>{asset.details.location}</span>
-                            )}
-                            {asset.type === 'vehicle' && asset.details?.modelYear && (
-                              <span>{asset.details.modelYear}</span>
-                            )}
-                            {asset.type === 'investment' && asset.details?.symbol && (
-                              <span>{asset.details.symbol} • {asset.details.shares} shares</span>
-                            )}
-                            {!asset.details && <span className="capitalize">{asset.type}</span>}
-                          </p>
+                        <div className="flex items-center gap-3">
+                          <div className="text-right">
+                            <div className="font-bold text-sm text-white">
+                              {formatCurrency(asset.value, asset.currency)}
+                            </div>
+                            <div className="text-[10px] text-zinc-500">
+                              Updated {new Date(asset.lastUpdated).toLocaleDateString()}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
+                            <button
+                              onClick={() => handleOpenEdit(asset)}
+                              className="p-1 hover:bg-zinc-800 rounded transition"
+                              title="Edit asset"
+                            >
+                              <EditIcon />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteAsset(asset.id)}
+                              className="p-1 hover:bg-zinc-800 rounded transition"
+                              title="Delete asset"
+                            >
+                              <TrashIcon />
+                            </button>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-3">
-                        <div className="text-right">
-                          <div className="font-bold text-sm text-white">
-                            {formatCurrency(asset.value, asset.currency)}
-                          </div>
-                          <div className="text-[10px] text-zinc-500">
-                            Updated {new Date(asset.lastUpdated).toLocaleDateString()}
-                          </div>
+
+                      {/* Display Notes for Physical Assets */}
+                      {asset.details?.notes && (
+                        <div className="mt-2 text-xs text-zinc-500 border-t border-zinc-900 pt-2 pl-1.5">
+                          {asset.details.notes}
                         </div>
-                        <button
-                          onClick={() => handleDeleteAsset(asset.id)}
-                          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-zinc-800 rounded transition"
-                          title="Delete asset"
-                        >
-                          <TrashIcon />
-                        </button>
-                      </div>
+                      )}
                     </div>
                   );
                 })}
@@ -289,12 +379,14 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* Add Asset Modal */}
+      {/* Add / Edit Asset Modal */}
       {isFormOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-fade-in">
           <div className="w-full max-w-md rounded-2xl bg-zinc-900 border border-zinc-850 p-6 shadow-2xl relative">
-            <h3 className="text-lg font-bold text-white mb-4">Add Asset</h3>
-            <form onSubmit={handleAddAsset} className="flex flex-col gap-4">
+            <h3 className="text-lg font-bold text-white mb-4">
+              {editingAsset ? 'Edit Asset' : 'Add Asset'}
+            </h3>
+            <form onSubmit={handleAddOrEditAsset} className="flex flex-col gap-4">
               {/* Asset Name */}
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
@@ -376,32 +468,63 @@ export function Dashboard() {
                 </div>
               )}
 
-              {type === 'real_estate' && (
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
-                    Location
-                  </label>
-                  <input
-                    type="text"
-                    value={location}
-                    onChange={(e) => setLocation(e.target.value)}
-                    placeholder="City, State / Address"
-                    className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 focus:border-zinc-700 text-white text-sm rounded-lg outline-none transition"
-                  />
+              {/* Purchase Price and Details for Physical Assets (Real Estate & Vehicles) */}
+              {(type === 'real_estate' || type === 'vehicle') && (
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                      Purchase Price
+                    </label>
+                    <input
+                      type="number"
+                      min="0"
+                      step="any"
+                      value={purchasePrice}
+                      onChange={(e) => setPurchasePrice(e.target.value)}
+                      placeholder="e.g. 350000"
+                      className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 focus:border-zinc-700 text-white text-sm rounded-lg outline-none transition"
+                    />
+                  </div>
+                  {type === 'real_estate' ? (
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                        Location
+                      </label>
+                      <input
+                        type="text"
+                        value={location}
+                        onChange={(e) => setLocation(e.target.value)}
+                        placeholder="City, State"
+                        className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 focus:border-zinc-700 text-white text-sm rounded-lg outline-none transition"
+                      />
+                    </div>
+                  ) : (
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                        Model Year
+                      </label>
+                      <input
+                        type="number"
+                        value={modelYear}
+                        onChange={(e) => setModelYear(e.target.value)}
+                        placeholder="e.g. 2023"
+                        className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 focus:border-zinc-700 text-white text-sm rounded-lg outline-none transition"
+                      />
+                    </div>
+                  )}
                 </div>
               )}
 
-              {type === 'vehicle' && (
+              {(type === 'real_estate' || type === 'vehicle') && (
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
-                    Model Year
+                    Notes
                   </label>
-                  <input
-                    type="number"
-                    value={modelYear}
-                    onChange={(e) => setModelYear(e.target.value)}
-                    placeholder="e.g. 2023"
-                    className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 focus:border-zinc-700 text-white text-sm rounded-lg outline-none transition"
+                  <textarea
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    placeholder="Additional details..."
+                    className="w-full h-20 px-3.5 py-2 bg-zinc-950 border border-zinc-800 focus:border-zinc-700 text-white text-sm rounded-lg outline-none transition resize-none"
                   />
                 </div>
               )}

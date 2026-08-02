@@ -44,4 +44,59 @@ describe('App', () => {
     // Verify asset is added
     expect(screen.getByText('New Test Account')).toBeInTheDocument();
   });
+
+  it('allows editing a physical asset (real estate / vehicle)', () => {
+    render(<App />);
+
+    // Get the first edit button
+    const editButtons = screen.getAllByTitle('Edit asset');
+    fireEvent.click(editButtons[0]!);
+
+    // Verify modal is open as "Edit Asset"
+    expect(screen.getByRole('heading', { name: 'Edit Asset' })).toBeInTheDocument();
+
+    // Edit Name
+    const nameInput = screen.getByPlaceholderText('e.g. Primary Savings, Family Home');
+    fireEvent.change(nameInput, { target: { value: 'Edited Savings Account' } });
+
+    // Save
+    const saveButton = screen.getByRole('button', { name: /Save Asset/i });
+    fireEvent.click(saveButton);
+
+    // Verify updated value
+    expect(screen.getByText('Edited Savings Account')).toBeInTheDocument();
+  });
+
+  it('allows full CRUD on vehicle assets', () => {
+    render(<App />);
+
+    // 1. Add vehicle
+    const addButton = screen.getByRole('button', { name: /Add Asset/i });
+    fireEvent.click(addButton);
+
+    const nameInput = screen.getByPlaceholderText('e.g. Primary Savings, Family Home');
+    const classSelect = screen.getByRole('combobox');
+    const valueInput = screen.getByPlaceholderText('e.g. 5000');
+
+    fireEvent.change(nameInput, { target: { value: 'Test Roadster' } });
+    fireEvent.change(classSelect, { target: { value: 'vehicle' } });
+    fireEvent.change(valueInput, { target: { value: '75000' } });
+
+    // Now fields for vehicle should be visible: Purchase Price, Model Year, Notes
+    const purchasePriceInput = screen.getByPlaceholderText('e.g. 350000');
+    const modelYearInput = screen.getByPlaceholderText('e.g. 2023');
+    const notesInput = screen.getByPlaceholderText('Additional details...');
+
+    fireEvent.change(purchasePriceInput, { target: { value: '80000' } });
+    fireEvent.change(modelYearInput, { target: { value: '2024' } });
+    fireEvent.change(notesInput, { target: { value: 'My dream car' } });
+
+    const saveButton = screen.getByRole('button', { name: /Save Asset/i });
+    fireEvent.click(saveButton);
+
+    // Verify Roadster and its metadata (year, purchase price, notes) are displayed
+    expect(screen.getByText('Test Roadster')).toBeInTheDocument();
+    expect(screen.getByText('2024 • Purchased for $80,000')).toBeInTheDocument();
+    expect(screen.getByText('My dream car')).toBeInTheDocument();
+  });
 });
