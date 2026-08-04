@@ -42,6 +42,8 @@ export const INITIAL_MOCK_ASSETS: Asset[] = [
     lastUpdated: '2026-07-28T16:00:00Z',
     details: {
       location: 'Austin, TX',
+      purchasePrice: 380000.0,
+      notes: 'Purchased in 2021 with 20% down payment.',
     },
   },
   {
@@ -50,9 +52,11 @@ export const INITIAL_MOCK_ASSETS: Asset[] = [
     type: 'vehicle',
     value: 42000.0,
     currency: 'USD',
-    lastUpdated: '2026-08-01T08:00:00Z',
+    lastUpdated: '2026-08-01T08:00:05Z',
     details: {
       modelYear: 2023,
+      purchasePrice: 52000.0,
+      notes: 'Standard Range AWD electric SUV.',
     },
   },
   {

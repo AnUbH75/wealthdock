@@ -17,5 +17,7 @@ export interface Asset {
     modelYear?: number;
     symbol?: string;
     shares?: number;
+    purchasePrice?: number;
+    notes?: string;
   };
 }
