@@ -10,7 +10,7 @@ describe('App', () => {
     expect(screen.getByRole('heading', { name: 'wealthdock' })).toBeInTheDocument();
 
     // Renders total net worth title
-    expect(screen.getByText('Total Net Worth')).toBeInTheDocument();
+    expect(screen.getAllByText('Total Net Worth')[0]).toBeInTheDocument();
 
     // Renders breakdown header
     expect(screen.getByText('Breakdown by Class')).toBeInTheDocument();
@@ -98,5 +98,29 @@ describe('App', () => {
     expect(screen.getByText('Test Roadster')).toBeInTheDocument();
     expect(screen.getByText('2024 • Purchased for $80,000')).toBeInTheDocument();
     expect(screen.getByText('My dream car')).toBeInTheDocument();
+  });
+
+  it('renders the net worth development chart and handles range/metric toggles', () => {
+    render(<App />);
+
+    // Verify chart section title is visible
+    expect(screen.getByText('Net Worth Development')).toBeInTheDocument();
+
+    // Verify range selectors are in the document
+    expect(screen.getByRole('button', { name: '1M' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '6M' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: '1Y' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'ALL' })).toBeInTheDocument();
+
+    // Verify metric selector toggles
+    expect(screen.getByRole('button', { name: 'Total Net Worth' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Bank Accounts' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Real Estate' })).toBeInTheDocument();
+
+    // Click 6M range
+    fireEvent.click(screen.getByRole('button', { name: '6M' }));
+
+    // Click Real Estate metric
+    fireEvent.click(screen.getByRole('button', { name: 'Real Estate' }));
   });
 });

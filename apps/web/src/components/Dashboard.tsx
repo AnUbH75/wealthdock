@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { Asset, AssetType } from '../types/asset';
 import { INITIAL_MOCK_ASSETS } from '../utils/mockData';
+import { HistoryChart } from './HistoryChart';
 
 // Custom inline SVG icons
 const BankIcon = () => (
@@ -238,6 +239,11 @@ export function Dashboard() {
           Add Asset
         </button>
       </header>
+
+      {/* History Chart */}
+      <div className="mb-8">
+        <HistoryChart />
+      </div>
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

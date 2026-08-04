@@ -21,3 +21,9 @@ export interface Asset {
     notes?: string;
   };
 }
+
+export interface NetWorthSnapshot {
+  date: string; // ISO date string (YYYY-MM-DD)
+  total: number;
+  breakdown: Record<AssetType, number>;
+}
