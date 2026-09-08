@@ -1,6 +1,7 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import { Asset, AssetType } from '../types/asset';
 import { HistoryChart } from './HistoryChart';
+import { api } from '../utils/api';
 
 // Custom inline SVG icons
 const BankIcon = () => (
@@ -51,6 +52,18 @@ const PlusIcon = () => (
   </svg>
 );
 
+const RefreshIcon = ({ spinning }: { spinning?: boolean }) => (
+  <svg
+    className={`w-4 h-4 ${spinning ? 'animate-spin' : ''}`}
+    fill="none"
+    viewBox="0 0 24 24"
+    stroke="currentColor"
+    strokeWidth={2}
+  >
+    <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+  </svg>
+);
+
 // Map categories to labels, colors, and icons
 const CATEGORY_MAP: Record<AssetType, { label: string; colorClass: string; bgClass: string; icon: React.ComponentType }> = {
   bank: { label: 'Bank Accounts', colorClass: 'text-indigo-400', bgClass: 'bg-indigo-500', icon: BankIcon },
@@ -68,6 +81,8 @@ interface DashboardProps {
 export function Dashboard({ assets, setAssets }: DashboardProps) {
   const [isFormOpen, setIsFormOpen] = useState(false);
   const [editingAsset, setEditingAsset] = useState<Asset | null>(null);
+  const [livePrices, setLivePrices] = useState<Record<string, number>>({});
+  const [isRefreshingPrices, setIsRefreshingPrices] = useState(false);
 
   // Form State
   const [name, setName] = useState('');
@@ -79,14 +94,65 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
   const [location, setLocation] = useState('');
   const [modelYear, setModelYear] = useState('');
   const [symbol, setSymbol] = useState('');
+  const [assetClass, setAssetClass] = useState<'stock' | 'crypto'>('stock');
   const [shares, setShares] = useState('');
   const [purchasePrice, setPurchasePrice] = useState('');
   const [notes, setNotes] = useState('');
 
+  const getEffectiveValue = (asset: Asset): number => {
+       if (asset.type === 'investment' && asset.details?.symbol && asset.details?.shares) {
+         const livePrice = livePrices[asset.details.symbol];
+         if (livePrice != null) return asset.details.shares * livePrice;
+       }
+       return asset.value;
+     };
+
+  const fetchLivePrices = useCallback(async () => {
+    const uniquePairs = Array.from(
+      new Map(
+        assets
+          .filter((a) => a.type === 'investment' && a.details?.symbol)
+          .map((a) => {
+            const sym = a.details!.symbol!;
+            const cls = a.details!.assetClass || 'stock';
+            return [`${sym}:${cls}`, { symbol: sym, assetClass: cls }] as const;
+          })
+      ).values()
+    );
+
+    if (uniquePairs.length === 0) return;
+
+    setIsRefreshingPrices(true);
+    try {
+      const results = await Promise.allSettled(
+        uniquePairs.map((pair) => api.fetchQuote(pair.symbol, pair.assetClass))
+      );
+
+      setLivePrices((prev) => {
+        const next = { ...prev };
+        results.forEach((result, i) => {
+          if (result.status === 'fulfilled') {
+            next[uniquePairs[i].symbol] = result.value.price;
+          }
+          // On failure, leave the previous entry (if any) untouched so
+          // getEffectiveValue keeps falling back to asset.value.
+        });
+        return next;
+      });
+    } finally {
+      setIsRefreshingPrices(false);
+    }
+  }, [assets]);
+
+  useEffect(() => {
+    fetchLivePrices();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   // Calculations
   const totalNetWorth = useMemo(() => {
-    return assets.reduce((sum, asset) => sum + asset.value, 0);
-  }, [assets]);
+    return assets.reduce((sum, asset) => sum + getEffectiveValue(asset), 0);
+  }, [assets, livePrices]);
 
   const categoryBreakdown = useMemo(() => {
     const breakdown: Record<AssetType, number> = {
@@ -98,7 +164,7 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
     };
 
     assets.forEach((asset) => {
-      breakdown[asset.type] += asset.value;
+      breakdown[asset.type] += getEffectiveValue(asset);
     });
 
     return Object.entries(breakdown).map(([key, val]) => {
@@ -110,7 +176,7 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
         ...CATEGORY_MAP[key as AssetType],
       };
     }).sort((a, b) => b.value - a.value);
-  }, [assets, totalNetWorth]);
+  }, [assets, totalNetWorth, livePrices]);
 
   // Actions
   const handleOpenEdit = (asset: Asset) => {
@@ -126,6 +192,7 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
     setLocation(asset.details?.location || '');
     setModelYear(asset.details?.modelYear?.toString() || '');
     setSymbol(asset.details?.symbol || '');
+    setAssetClass(asset.details?.assetClass || 'stock');
     setShares(asset.details?.shares?.toString() || '');
     setPurchasePrice(asset.details?.purchasePrice?.toString() || '');
     setNotes(asset.details?.notes || '');
@@ -157,6 +224,7 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
       if (notes) details.notes = notes;
     } else if (type === 'investment') {
       if (symbol) details.symbol = symbol;
+      if (symbol) details.assetClass = assetClass;
       if (shares) details.shares = parseFloat(shares);
     }
 
@@ -207,6 +275,7 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
     setLocation('');
     setModelYear('');
     setSymbol('');
+    setAssetClass('stock');
     setShares('');
     setPurchasePrice('');
     setNotes('');
@@ -231,13 +300,23 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
       {/* Top Header */}
       <header className="flex justify-between items-center mb-6">
         <h2 className="text-lg font-bold text-white">Asset Portfolio</h2>
-        <button
-          onClick={handleOpenAdd}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 active:scale-95 text-white rounded-lg transition"
-        >
-          <PlusIcon />
-          Add Asset
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={fetchLivePrices}
+            disabled={isRefreshingPrices}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 active:scale-95 disabled:opacity-50 disabled:active:scale-100 text-white rounded-lg transition"
+          >
+            <RefreshIcon spinning={isRefreshingPrices} />
+            {isRefreshingPrices ? 'Refreshing...' : 'Refresh Prices'}
+          </button>
+          <button
+            onClick={handleOpenAdd}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium bg-zinc-800 border border-zinc-700 hover:bg-zinc-700 active:scale-95 text-white rounded-lg transition"
+          >
+            <PlusIcon />
+            Add Asset
+          </button>
+        </div>
       </header>
 
       {/* History Chart */}
@@ -345,7 +424,7 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
                         <div className="flex items-center gap-3">
                           <div className="text-right">
                             <div className="font-bold text-sm text-white">
-                              {formatCurrency(asset.value, asset.currency)}
+                              {formatCurrency(getEffectiveValue(asset), asset.currency)}
                             </div>
                             <div className="text-[10px] text-zinc-500">
                               Updated {new Date(asset.lastUpdated).toLocaleDateString()}
@@ -536,33 +615,64 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
               )}
 
               {type === 'investment' && (
-                <div className="grid grid-cols-2 gap-4">
+                <>
                   <div>
                     <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
-                      Ticker / Symbol
+                      Asset Class
                     </label>
-                    <input
-                      type="text"
-                      value={symbol}
-                      onChange={(e) => setSymbol(e.target.value.toUpperCase())}
-                      placeholder="VOO"
-                      className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 focus:border-zinc-700 text-white text-sm rounded-lg outline-none transition"
-                    />
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setAssetClass('stock')}
+                        className={`flex-1 px-3.5 py-2 text-sm rounded-lg border transition ${
+                          assetClass === 'stock'
+                            ? 'bg-white text-zinc-950 border-white'
+                            : 'bg-zinc-950 text-zinc-300 border-zinc-800 hover:border-zinc-700'
+                        }`}
+                      >
+                        Stock
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setAssetClass('crypto')}
+                        className={`flex-1 px-3.5 py-2 text-sm rounded-lg border transition ${
+                          assetClass === 'crypto'
+                            ? 'bg-white text-zinc-950 border-white'
+                            : 'bg-zinc-950 text-zinc-300 border-zinc-800 hover:border-zinc-700'
+                        }`}
+                      >
+                        Crypto
+                      </button>
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
-                      Shares
-                    </label>
-                    <input
-                      type="number"
-                      step="any"
-                      value={shares}
-                      onChange={(e) => setShares(e.target.value)}
-                      placeholder="e.g. 10.5"
-                      className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 focus:border-zinc-700 text-white text-sm rounded-lg outline-none transition"
-                    />
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                        Ticker / Symbol
+                      </label>
+                      <input
+                        type="text"
+                        value={symbol}
+                        onChange={(e) => setSymbol(e.target.value.toUpperCase())}
+                        placeholder={assetClass === 'crypto' ? 'BTC' : 'VOO'}
+                        className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 focus:border-zinc-700 text-white text-sm rounded-lg outline-none transition"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold uppercase tracking-wider text-zinc-400 mb-1">
+                        Shares
+                      </label>
+                      <input
+                        type="number"
+                        step="any"
+                        value={shares}
+                        onChange={(e) => setShares(e.target.value)}
+                        placeholder="e.g. 10.5"
+                        className="w-full px-3.5 py-2 bg-zinc-950 border border-zinc-800 focus:border-zinc-700 text-white text-sm rounded-lg outline-none transition"
+                      />
+                    </div>
                   </div>
-                </div>
+                </>
               )}
 
               {/* Form Buttons */}
