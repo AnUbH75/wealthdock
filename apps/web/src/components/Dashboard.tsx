@@ -201,13 +201,16 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
   const [purchasePrice, setPurchasePrice] = useState('');
   const [notes, setNotes] = useState('');
 
-  const getEffectiveValue = (asset: Asset): number => {
-    if (asset.type === 'investment' && asset.details?.symbol && asset.details?.shares) {
-      const livePrice = livePrices[asset.details.symbol];
-      if (livePrice != null) return asset.details.shares * livePrice;
-    }
-    return asset.value;
-  };
+  const getEffectiveValue = useCallback(
+    (asset: Asset): number => {
+      if (asset.type === 'investment' && asset.details?.symbol && asset.details?.shares) {
+        const livePrice = livePrices[asset.details.symbol];
+        if (livePrice != null) return asset.details.shares * livePrice;
+      }
+      return asset.value;
+    },
+    [livePrices],
+  );
 
   const fetchLivePrices = useCallback(async () => {
     const uniquePairs = Array.from(
@@ -233,8 +236,10 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
       setLivePrices((prev) => {
         const next = { ...prev };
         results.forEach((result, i) => {
+          const pair = uniquePairs[i];
+          if (!pair) return;
           if (result.status === 'fulfilled') {
-            next[uniquePairs[i].symbol] = result.value.price;
+            next[pair.symbol] = result.value.price;
           }
           // On failure, leave the previous entry (if any) untouched so
           // getEffectiveValue keeps falling back to asset.value.
@@ -254,7 +259,7 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
   // Calculations
   const totalNetWorth = useMemo(() => {
     return assets.reduce((sum, asset) => sum + getEffectiveValue(asset), 0);
-  }, [assets, livePrices]);
+  }, [assets, getEffectiveValue]);
 
   const categoryBreakdown = useMemo(() => {
     const breakdown: Record<AssetType, number> = {
@@ -280,7 +285,7 @@ export function Dashboard({ assets, setAssets }: DashboardProps) {
         };
       })
       .sort((a, b) => b.value - a.value);
-  }, [assets, totalNetWorth, livePrices]);
+  }, [assets, totalNetWorth, getEffectiveValue]);
 
   // Actions
   const handleOpenEdit = (asset: Asset) => {
