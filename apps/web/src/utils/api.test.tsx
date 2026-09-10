@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { api } from './api';
 
 function mockFetchOnce(status: number, body: unknown) {
-  global.fetch = vi.fn().mockResolvedValue({
+  globalThis.fetch = vi.fn().mockResolvedValue({
     ok: status >= 200 && status < 300,
     status,
     json: async () => body,
@@ -33,8 +33,10 @@ describe('ApiClient.fetchQuote', () => {
 
     await api.fetchQuote('BTC', 'crypto');
 
-    expect(global.fetch).toHaveBeenCalledTimes(1);
-    const [url, options] = (global.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    expect(globalThis.fetch).toHaveBeenCalledTimes(1);
+    const call = (globalThis.fetch as ReturnType<typeof vi.fn>).mock.calls[0];
+    if (!call) throw new Error('expected fetch to have been called');
+    const [url, options] = call;
     expect(String(url)).toContain('symbol=BTC');
     expect(String(url)).toContain('asset_class=crypto');
     expect((options as RequestInit).headers).toMatchObject({
